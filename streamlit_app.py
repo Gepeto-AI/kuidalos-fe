@@ -1,7 +1,22 @@
 import streamlit as st
 import pandas as pd
 import math
+import toml
 from pathlib import Path
+from pymongo import MongoClient
+
+# Obtener las variables de entorno desde st.secrets
+#MONGODB_URI = st.secrets["MONGODB_URI"]
+#DATABASE_NAME = st.secrets["MONGODB_DATABASE"]
+st.write(st.secrets["MONGODB_URI"])
+# Conectar a MongoDB
+#client = MongoClient(MONGODB_URI)
+#db = client[DATABASE_NAME]
+#collection = db["call_information"]
+
+# Ejemplo: Obtener los primeros 10 documentos
+#documents = list(collection.find().limit(10))
+#st.write(documents)
 
 # Set the title and favicon that appear in the Browser's tab bar.
 st.set_page_config(
