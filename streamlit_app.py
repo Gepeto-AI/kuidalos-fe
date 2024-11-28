@@ -1,166 +1,85 @@
 import streamlit as st
 import pandas as pd
-import math
-import toml
-from pathlib import Path
 from pymongo import MongoClient
+from datetime import datetime
+import calendar
 
-# Obtener las variables de entorno desde st.secrets
-#MONGODB_URI = st.secrets["MONGODB_URI"]
-#DATABASE_NAME = st.secrets["MONGODB_DATABASE"]
-st.write(st.secrets["MONGODB_URI"])
 # Conectar a MongoDB
-#client = MongoClient(MONGODB_URI)
-#db = client[DATABASE_NAME]
-#collection = db["call_information"]
+MONGODB_URI = st.secrets["MONGODB_URI"]
+DATABASE_NAME = st.secrets["MONGODB_DATABASE"]
+client = MongoClient(MONGODB_URI)
+db = client[DATABASE_NAME]
+collection = db["call_information"]
 
-# Ejemplo: Obtener los primeros 10 documentos
-#documents = list(collection.find().limit(10))
-#st.write(documents)
+# Mapeo de días en inglés a español
+day_translation = {
+    "Monday": "Lunes",
+    "Tuesday": "Martes",
+    "Wednesday": "Miércoles",
+    "Thursday": "Jueves",
+    "Friday": "Viernes",
+    "Saturday": "Sábado",
+    "Sunday": "Domingo"
+}
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
-
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
-
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
-
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
-
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
-
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
-
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
+# Obtener datos de la colección
+def get_inbound_users_by_day():
+    # Filtrar solo las llamadas de tipo inbound usando $elemMatch
+    inbound_calls = collection.find(
+        {"calls": {"$elemMatch": {"type_call": "inbound"}}}, 
+        {"calls": 1, "user_id": 1}  # Proyección para incluir solo lo necesario
     )
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
+    # Crear una lista para almacenar los datos
+    data = []
+    for record in inbound_calls:
+        # Iterar sobre el campo "calls" que es un arreglo
+        for call in record.get("calls", []):
+            # Filtrar solo las llamadas de tipo "inbound"
+            if call.get("type_call") == "inbound":
+                # Validar que call_start_time exista
+                call_start_time = call.get("call_start_time")
+                if call_start_time:
+                    try:
+                        # Parsear la fecha y calcular el día de la semana
+                        call_start_time = datetime.fromisoformat(call_start_time.split(".")[0])
+                        day_of_week = calendar.day_name[call_start_time.weekday()]  # Obtener el día de la semana en inglés
+                        day_of_week_spanish = day_translation[day_of_week]  # Traducir al español
+                        data.append({"user_id": record["user_id"], "day_of_week": day_of_week_spanish})
+                    except Exception as e:
+                        st.warning(f"Error al procesar la fecha: {call_start_time}, error: {e}")
 
-    return gdp_df
+    # Verificar si hay datos
+    if not data:
+        st.warning("No se encontraron llamadas inbound para procesar.")
+        return pd.Series(dtype=int)  # Retornar una serie vacía para evitar errores
 
-gdp_df = get_gdp_data()
+    # Convertir a DataFrame
+    df = pd.DataFrame(data)
 
-# -----------------------------------------------------------------------------
-# Draw the actual page
+    # Contar usuarios únicos por día de la semana
+    inbound_users_by_day = (
+        df.groupby("day_of_week")["user_id"]
+        .nunique()
+        .reindex(["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"], fill_value=0)
+    )
 
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
+    # Asegurarse de que los días estén ordenados correctamente
+    day_order = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    inbound_users_by_day.index = pd.CategoricalIndex(
+        inbound_users_by_day.index, categories=day_order, ordered=True
+    )
+    inbound_users_by_day = inbound_users_by_day.sort_index()
 
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
+    return inbound_users_by_day
 
-# Add some spacing
-''
-''
+# Llamar a la función para obtener los datos
+inbound_users_by_day = get_inbound_users_by_day()
 
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
+# Mostrar los datos en la aplicación de Streamlit
+st.title("Número de usuarios inbound por día de la semana")
 
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+if inbound_users_by_day.empty:
+    st.warning("No hay datos disponibles para mostrar.")
+else:
+    st.bar_chart(inbound_users_by_day)
