@@ -2,10 +2,11 @@ import streamlit as st
 from inbound import *
 from outbound import *
 from duration_calls import *
-# Se pueden importar otros módulos en el futuro, como 'outbound.py'
+from topics import *
+import altair as alt
 
 # Crear menú de selección de páginas
-menu_options = ["Llamadas Inbound", "Llamadas Outbound", "Tiempos de llamadas"]
+menu_options = ["Llamadas Inbound", "Llamadas Outbound", "Tiempos de llamadas", "Tiempos por temas"]
 page_selection = st.sidebar.selectbox("Seleccione una página", menu_options)
 
 # Configurar el contenido basado en la página seleccionada
@@ -140,3 +141,52 @@ elif page_selection == "Tiempos de llamadas":
         st.warning("No hay datos disponibles para el porcentaje de conversación por edad.")
     else:
         st.bar_chart(chatbot_vs_human_by_age)
+
+elif page_selection == "Tiempos por temas":
+    # Main Streamlit Visualization
+    st.title("Análisis de Conversación por Tema")
+
+    # Fetch data
+    df = get_data_by_topic()
+
+    if df.empty:
+        st.warning("No hay datos disponibles para análisis.")
+    else:
+        # 1. Porcentaje de tiempo promedio del chatbot vs. cliente por tema
+        st.header("Porcentaje de tiempo promedio del Chatbot vs Cliente por Tema")
+        percentage_by_topic = get_percentage_time_by_topic(df)
+        # Resetear el índice para trabajar con Altair
+        percentage_by_topic_reset = percentage_by_topic.reset_index()
+
+        # Convertir el DataFrame a formato largo
+        percentage_by_topic_long = percentage_by_topic_reset.melt(
+            id_vars=["topic"], 
+            value_vars=["bot_percentage", "persona_percentage"],
+            var_name="Type",
+            value_name="Percentage"
+        )
+
+        # Crear un gráfico de barras con Altair
+        chart = alt.Chart(percentage_by_topic_long).mark_bar().encode(
+            x=alt.X("topic:N", sort=percentage_by_topic_reset["topic"].tolist(), title="Temas"),
+            y=alt.Y("Percentage:Q", title="Porcentaje"),
+            color=alt.Color("Type:N", legend=alt.Legend(title="Tipo")),
+            tooltip=["topic", "Type", "Percentage"]
+        ).properties(
+            width=800,
+            height=400,
+            title="Porcentaje de tiempo promedio por tema"
+        )
+
+        # Mostrar el gráfico
+        st.altair_chart(chart, use_container_width=True)
+
+        # 2. Minutos de interacción total por cada tema, por edad y género
+        st.header("Minutos de interacción total por Tema, Edad y Género")
+        total_time_by_topic_age_gender = get_total_time_by_topic_age_gender(df)
+        st.write(total_time_by_topic_age_gender)
+
+        # 3. Minutos de interacción promedio por llamada en cada tema, por edad y género
+        st.header("Minutos de interacción promedio por Llamada en cada Tema, Edad y Género")
+        average_time_by_topic_age_gender = get_average_time_per_call_by_topic_age_gender(df)
+        st.write(average_time_by_topic_age_gender)
