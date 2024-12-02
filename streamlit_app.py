@@ -1,9 +1,11 @@
 import streamlit as st
 from inbound import *
+from outbound import *
+from duration_calls import *
 # Se pueden importar otros módulos en el futuro, como 'outbound.py'
 
 # Crear menú de selección de páginas
-menu_options = ["Llamadas Inbound", "Llamadas Outbound", "Otra Página"]
+menu_options = ["Llamadas Inbound", "Llamadas Outbound", "Tiempos de llamadas"]
 page_selection = st.sidebar.selectbox("Seleccione una página", menu_options)
 
 # Configurar el contenido basado en la página seleccionada
@@ -54,13 +56,87 @@ if page_selection == "Llamadas Inbound":
         st.dataframe(call_distribution_table.style.set_caption("Distribución por género y rangos de edad"))
 
 elif page_selection == "Llamadas Outbound":
-    st.title("Métricas de Usuarios Outbound")
-    st.write("Esta página estará dedicada a mostrar métricas relacionadas con llamadas outbound.")
-    # Implementar métricas para llamadas outbound cuando se construyan las funciones correspondientes
-    # Por ejemplo:
-    # outbound_users_by_day = get_outbound_calls_by_day()
-    # st.bar_chart(outbound_users_by_day)
+    # Obtener métricas
+    outbound_users_percentage_by_week = get_outbound_calls_by_week()
+    outbound_calls_by_duration = get_outbound_calls_by_duration()
+    outbound_calls_by_age = get_outbound_calls_by_age()
+    outbound_calls_by_gender = get_outbound_calls_by_gender()
 
-elif page_selection == "Otra Página":
-    st.title("Otra Página")
-    st.write("Esta es otra página que puede contener cualquier contenido adicional en el futuro.")
+    # Visualización en Streamlit
+    st.title("Métricas de Usuarios Outbound")
+
+    st.header("Número de llamadas contactados outbound por semana")
+    if outbound_users_percentage_by_week.empty:
+        st.warning("No hay datos disponibles para mostrar en esta métrica.")
+    else:
+        st.bar_chart(outbound_users_percentage_by_week)
+
+    st.header("Número de llamadas outbound por duración (rangos de 5 minutos)")
+    if outbound_calls_by_duration.empty:
+        st.warning("No hay datos disponibles para mostrar en esta métrica.")
+    else:
+        st.bar_chart(outbound_calls_by_duration)
+
+    st.header("Número de llamadas outbound por edad (rangos de 5 años desde 60 años)")
+    if outbound_calls_by_age.empty:
+        st.warning("No hay datos disponibles para mostrar en esta métrica.")
+    else:
+        st.bar_chart(outbound_calls_by_age)
+
+    st.header("Número de llamadas outbound por género")
+    if outbound_calls_by_gender.empty:
+        st.warning("No hay datos disponibles para mostrar en esta métrica.")
+    else:
+        st.bar_chart(outbound_calls_by_gender)
+
+elif page_selection == "Tiempos de llamadas":
+    # Visualización en Streamlit
+    st.title("Métricas de Llamadas")
+
+    # Encabezados
+    average_call_duration = get_average_call_duration()
+    st.subheader(f"Duración de llamada promedio total: {average_call_duration} minutos")
+
+    average_call_duration_by_gender = get_average_call_duration_by_gender()
+    if average_call_duration_by_gender.empty:
+        st.warning("No hay datos disponibles para la duración promedio por género.")
+    else:
+        st.subheader("Duración de llamada promedio por género")
+        for gender, duration in average_call_duration_by_gender.items():
+            st.write(f"{gender.capitalize()}: {duration:.3f} minutos")
+
+    # Gráficas
+    st.header("Duración promedio por edad (rangos de 5 años)")
+    average_duration_by_age = get_average_call_duration_by_age()
+    if average_duration_by_age.empty:
+        st.warning("No hay datos disponibles para la duración promedio por edad.")
+    else:
+        st.bar_chart(average_duration_by_age)
+
+    st.header("Duración promedio por día de la semana")
+    average_duration_by_day = get_average_call_duration_by_day_of_week()
+    if average_duration_by_day.empty:
+        st.warning("No hay datos disponibles para la duración promedio por día de la semana.")
+    else:
+        st.bar_chart(average_duration_by_day)
+
+    st.header("Duración promedio por hora del día")
+    average_duration_by_hour = get_average_call_duration_by_hour_of_day()
+    if average_duration_by_hour.empty:
+        st.warning("No hay datos disponibles para la duración promedio por hora del día.")
+    else:
+        st.bar_chart(average_duration_by_hour)
+
+    st.header("Porcentaje de conversación promedio: Chatbot vs Cliente por género")
+    chatbot_vs_human_by_gender = get_chatbot_vs_human_percentage_by_gender()
+    if chatbot_vs_human_by_gender.empty:
+        st.warning("No hay datos disponibles para el porcentaje de conversación por género.")
+    else:
+        st.bar_chart(chatbot_vs_human_by_gender)
+
+    st.header("Porcentaje de conversación promedio: Chatbot vs Cliente por edad")
+    chatbot_vs_human_by_age = get_chatbot_vs_human_percentage_by_age()
+    if chatbot_vs_human_by_age.empty:
+        st.warning("No hay datos disponibles para el porcentaje de conversación por edad.")
+    else:
+        st.bar_chart(chatbot_vs_human_by_age)
