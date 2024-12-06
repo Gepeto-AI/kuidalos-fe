@@ -182,15 +182,55 @@ elif page_selection == "Tiempos por temas":
         st.altair_chart(chart, use_container_width=True)
 
         # Mostrar la gráfica de torta
-        st.header("Gráfica de torta: Tiempo por tema")
+        st.header("Porcentaje de tiempo por tema")
         generate_pie_chart_by_topic(df)
 
-        # 2. Minutos de interacción total por cada tema, por edad y género
-        st.header("Minutos de interacción total por Tema, Edad y Género")
-        total_time_by_topic_age_gender = get_total_time_by_topic_age_gender(df)
-        st.write(total_time_by_topic_age_gender)
+        # Calcular los porcentajes por tema y rangos de edad
+        percentage_by_age_ranges = get_percentage_time_by_age_ranges(df)
 
-        # 3. Minutos de interacción promedio por llamada en cada tema, por edad y género
-        st.header("Minutos de interacción promedio por Llamada en cada Tema, Edad y Género")
-        average_time_by_topic_age_gender = get_average_time_per_call_by_topic_age_gender(df)
-        st.write(average_time_by_topic_age_gender)
+        # Mostrar la tabla resultante
+        st.header("Porcentaje de tiempo por tema y rangos de edad")
+        # Generar gráfico si hay datos disponibles
+        if not percentage_by_age_ranges.empty:
+            # Crear el gráfico de barras con Altair
+            chart = alt.Chart(percentage_by_age_ranges).mark_bar().encode(
+                x=alt.X("topic:N", sort=percentage_by_age_ranges["topic"].unique().tolist(), title="Temas"),
+                y=alt.Y("percentage:Q", title="Porcentaje"),
+                color=alt.Color("age_range:N", legend=alt.Legend(title="Rango de Edad")),
+                tooltip=["topic", "age_range", "percentage"]
+            ).properties(
+                width=800,
+                height=400,
+                #title="Porcentaje de tiempo por tema y rangos de edad"
+            )
+
+            # Mostrar el gráfico
+            #st.header("Porcentaje de tiempo por tema y rangos de edad")
+            st.altair_chart(chart, use_container_width=True)
+        else:
+            st.warning("No hay datos disponibles para generar el gráfico.")
+
+        #st.title("Análisis de tiempo por género")
+
+        # Calcular los porcentajes por tema y género
+        percentage_by_gender = get_percentage_time_by_gender(df)
+
+        # Generar gráfico si hay datos disponibles
+        if not percentage_by_gender.empty:
+            # Crear el gráfico de barras con Altair
+            chart = alt.Chart(percentage_by_gender).mark_bar().encode(
+                x=alt.X("topic:N", sort=percentage_by_gender["topic"].unique().tolist(), title="Temas"),
+                y=alt.Y("percentage:Q", title="Porcentaje"),
+                color=alt.Color("user_gender:N", legend=alt.Legend(title="Género")),
+                tooltip=["topic", "user_gender", "percentage"]
+            ).properties(
+                width=800,
+                height=400,
+                #title="Porcentaje de tiempo por tema y género"
+            )
+
+            # Mostrar el gráfico
+            st.header("Porcentaje de tiempo por tema y género")
+            st.altair_chart(chart, use_container_width=True)
+        else:
+            st.warning("No hay datos disponibles para generar el gráfico.")

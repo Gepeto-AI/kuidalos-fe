@@ -86,9 +86,51 @@ def generate_pie_chart_by_topic(df):
         autopct='%1.1f%%',
         startangle=140
     )
-    plt.title("Distribución de tiempo por tema")
+    #plt.title("Distribución de tiempo por tema")
     plt.axis('equal')  # Asegurar que la gráfica sea circular
     st.pyplot(plt)
+
+def get_percentage_time_by_age_ranges(df):
+    """
+    Calcula el porcentaje de tiempo por tema distribuidos en rangos de edades
+    a partir de los 60 años en intervalos de 5 años.
+    """
+    if df.empty:
+        return pd.DataFrame(columns=["topic", "age_range", "percentage"])
+
+    # Crear rangos de edad
+    df["age_range"] = pd.cut(
+        df["user_age"],
+        bins=list(range(60, df["user_age"].max() + 5, 5)),
+        right=False,
+        labels=[f"{i}-{i+4}" for i in range(60, df["user_age"].max(), 5)]
+    )
+
+    # Agrupación por tema y rango de edad
+    grouped = df.groupby(["topic", "age_range"])["total_time"].sum().reset_index()
+
+    # Cálculo del porcentaje de tiempo por rango de edad
+    total_time_by_topic = grouped.groupby("topic")["total_time"].transform("sum")
+    grouped["percentage"] = (grouped["total_time"] / total_time_by_topic) * 100
+
+    return grouped[["topic", "age_range", "percentage"]]
+
+def get_percentage_time_by_gender(df):
+    """
+    Calcula el porcentaje de tiempo por tema distribuido por género
+    y genera un DataFrame en formato largo para la visualización con Altair.
+    """
+    if df.empty:
+        return pd.DataFrame(columns=["topic", "user_gender", "percentage"])
+
+    # Agrupación por tema y género
+    grouped = df.groupby(["topic", "user_gender"])["total_time"].sum().reset_index()
+
+    # Cálculo del porcentaje de tiempo por género dentro de cada tema
+    total_time_by_topic = grouped.groupby("topic")["total_time"].transform("sum")
+    grouped["percentage"] = (grouped["total_time"] / total_time_by_topic) * 100
+
+    return grouped
 
 
 def get_total_time_by_topic_age_gender(df):
