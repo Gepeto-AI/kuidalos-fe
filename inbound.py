@@ -4,6 +4,8 @@ from pymongo import MongoClient
 from datetime import datetime
 import calendar
 import numpy as np
+from datetime import datetime
+import pytz
 
 # Conectar a MongoDB
 MONGODB_URI = st.secrets["MONGODB_URI"]
@@ -69,6 +71,10 @@ def get_inbound_calls_by_day():
     return inbound_calls_by_day.sort_index()
 
 def get_inbound_calls_by_hour():
+    # Zona horaria de México Central
+    mexico_city_tz = pytz.timezone("America/Mexico_City")
+    utc_tz = pytz.utc
+
     inbound_calls = collection.find(
         {"calls": {"$elemMatch": {"type_call": "inbound"}}}, 
         {"calls": 1}  # Solo necesitas el campo `calls`
@@ -81,9 +87,10 @@ def get_inbound_calls_by_hour():
                 call_start_time = call.get("call_start_time")
                 if call_start_time:
                     try:
-                        # Convertir el tiempo de inicio de la llamada al formato datetime
-                        call_start_time = datetime.fromisoformat(call_start_time.split(".")[0])
-                        hour_of_day = call_start_time.hour
+                        # Convertir la hora en formato naive a UTC y luego a la hora local de México
+                        utc_time = datetime.fromisoformat(call_start_time.split(".")[0]).replace(tzinfo=utc_tz)
+                        local_time = utc_time.astimezone(mexico_city_tz)
+                        hour_of_day = local_time.hour
                         data.append({"hour_of_day": hour_of_day})
                     except Exception as e:
                         # Manejar errores de conversión de fecha

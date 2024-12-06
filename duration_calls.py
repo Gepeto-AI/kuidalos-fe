@@ -4,6 +4,8 @@ import numpy as np
 from pymongo import MongoClient
 from datetime import datetime
 import calendar
+from datetime import datetime
+import pytz
 
 # Configuración de MongoDB
 MONGODB_URI = st.secrets["MONGODB_URI"]
@@ -122,6 +124,10 @@ def get_average_call_duration_by_day_of_week():
 
 # Función para duración promedio por hora del día
 def get_average_call_duration_by_hour_of_day():
+    # Zona horaria de México Central
+    mexico_city_tz = pytz.timezone("America/Mexico_City")
+    utc_tz = pytz.utc
+
     calls = collection.find(
         {"calls.call_duration.original_total_time": {"$exists": True}},
         {"calls.call_duration.original_total_time": 1, "calls.call_start_time": 1}
@@ -134,10 +140,11 @@ def get_average_call_duration_by_hour_of_day():
             call_start_time = call.get("call_start_time")
             if duration is not None and call_start_time:
                 try:
-                    # Procesar call_start_time
-                    call_start_time = datetime.fromisoformat(call_start_time.split(".")[0])
-                    hour_of_day = call_start_time.hour
-                    data.append({"hour_of_day": hour_of_day, "duration": duration / 60})  # Convertir a minutos
+                    # Convertir call_start_time a UTC y luego a la hora local de México
+                    utc_time = datetime.fromisoformat(call_start_time.split(".")[0]).replace(tzinfo=utc_tz)
+                    local_time = utc_time.astimezone(mexico_city_tz)
+                    hour_of_day = local_time.hour
+                    data.append({"hour_of_day": hour_of_day, "duration": duration / 60})  # Convertir duración a minutos
                 except Exception as e:
                     st.warning(f"Error procesando call_start_time '{call_start_time}': {e}")
                     continue
@@ -147,7 +154,7 @@ def get_average_call_duration_by_hour_of_day():
 
     # Crear DataFrame
     df = pd.DataFrame(data)
-  
+
     # Calcular la duración promedio por hora del día
     average_duration_by_hour = (
         df.groupby("hour_of_day")["duration"]

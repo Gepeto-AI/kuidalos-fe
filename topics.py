@@ -3,6 +3,7 @@ import numpy as np
 import streamlit as st
 from datetime import datetime
 from pymongo import MongoClient
+import matplotlib.pyplot as plt
 
 # Conectar a MongoDB
 MONGODB_URI = st.secrets["MONGODB_URI"]
@@ -65,6 +66,29 @@ def get_percentage_time_by_topic(df):
 
     return grouped[["bot_percentage", "persona_percentage"]]
 
+
+def generate_pie_chart_by_topic(df):
+    """
+    Genera una gráfica de torta para mostrar el porcentaje de tiempo total dedicado a cada tema.
+    """
+    if df.empty:
+        st.warning("No hay datos disponibles para generar la gráfica.")
+        return
+
+    # Agrupar datos por tema y calcular el tiempo total por tema
+    grouped = df.groupby("topic")["total_time"].sum()
+
+    # Configurar el gráfico de torta
+    plt.figure(figsize=(8, 8))
+    plt.pie(
+        grouped,
+        labels=grouped.index,
+        autopct='%1.1f%%',
+        startangle=140
+    )
+    plt.title("Distribución de tiempo por tema")
+    plt.axis('equal')  # Asegurar que la gráfica sea circular
+    st.pyplot(plt)
 
 
 def get_total_time_by_topic_age_gender(df):

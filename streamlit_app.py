@@ -181,6 +181,10 @@ elif page_selection == "Tiempos por temas":
         # Mostrar el gráfico
         st.altair_chart(chart, use_container_width=True)
 
+        # Mostrar la gráfica de torta
+        st.header("Gráfica de torta: Tiempo por tema")
+        generate_pie_chart_by_topic(df)
+
         # 2. Minutos de interacción total por cada tema, por edad y género
         st.header("Minutos de interacción total por Tema, Edad y Género")
         total_time_by_topic_age_gender = get_total_time_by_topic_age_gender(df)
